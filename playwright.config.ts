@@ -6,6 +6,21 @@ export default defineConfig({
   use: {
     headless: true,
     browserName: 'chromium',
-    screenshot: 'only-on-failure'
-  }
+    screenshot: 'on', 
+    video: 'on',
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
+  },
+  reporter: [
+    ['list'],
+    ['allure-playwright']
+  ],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        browserName: 'chromium'
+      }
+    }
+  ]
 });
