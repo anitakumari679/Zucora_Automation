@@ -6,7 +6,9 @@ export default defineConfig({
   use: {
     headless: true,
     browserName: 'chromium',
-    screenshot: 'only-on-failure'
+    screenshot: 'only-on-failure', trace: 'on-first-retry', video: 'on',
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
   },
   reporter: [
     ['list'],
