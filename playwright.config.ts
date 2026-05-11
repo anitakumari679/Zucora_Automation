@@ -6,7 +6,8 @@ export default defineConfig({
   use: {
     headless: true,
     browserName: 'chromium',
-    screenshot: 'only-on-failure', trace: 'on-first-retry', video: 'on',
+    screenshot: 'on', 
+    video: 'on',
     actionTimeout: 30000,
     navigationTimeout: 30000,
   },
