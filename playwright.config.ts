@@ -7,5 +7,17 @@ export default defineConfig({
     headless: true,
     browserName: 'chromium',
     screenshot: 'only-on-failure'
-  }
+  },
+  reporter: [
+    ['list'],
+    ['allure-playwright']
+  ],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        browserName: 'chromium'
+      }
+    }
+  ]
 });
