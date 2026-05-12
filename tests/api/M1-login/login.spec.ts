@@ -9,7 +9,7 @@ test('Verify user can login successfully', async ({ request }) => {
   const apiClient = new ApiClient(request);
 
   const response = await apiClient.post(
-    `${ApiConfig.buildUrl(ApiConfig.endpoints.login)}`,
+    `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.login)}`,
     {
       email: TestData.credentials.userEmail,
       password: TestData.password.userPassword
