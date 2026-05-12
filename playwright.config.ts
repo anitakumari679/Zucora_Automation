@@ -1,9 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
-import { loadEnvironment, getEnvironment} from './config/env-config';
+import { loadEnvironment, getEnvironment, getAdminBaseUrl} from './config/env-config';
 
-// Load environment-specific configuration
-// Environment is determined by TEST_ENV variable (qa or stg)
-// Usage: TEST_ENV=qa npx playwright test
+// Environment is determined by TEST_ENV (dev | stg). Loads config/{dev|stg}.env
+// Usage: TEST_ENV=dev npx playwright test
 //        TEST_ENV=stg npx playwright test
 loadEnvironment();
 
@@ -18,10 +17,10 @@ export default defineConfig({
     ['html', { outputFolder: 'reports/html-report' }],
     ['json', { outputFile: 'reports/test-results.json' }],
     ['list'],
-    ['allure-playwright'] // ✅ Added for Allure report
+    ['allure-playwright'] 
   ],
   use: {
-    baseURL: process.env.BASE_URL || getPatientBaseUrl(),
+    baseURL: process.env.BASE_URL || getAdminBaseUrl(),
     trace: 'on-first-retry',
     screenshot: 'on',
     video: 'on',
@@ -34,15 +33,23 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'api',
+      testMatch: '**/api/**/*.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      name: 'firefox',
+      name: 'ui-chromium',
+      testMatch: '**/ui/**/*.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'ui-firefox',
+      testMatch: '**/ui/**/*.spec.ts',
       use: { browserName: 'firefox' },
     },
     {
-      name: 'webkit',
+      name: 'ui-webkit',
+      testMatch: '**/ui/**/*.spec.ts',
       use: { browserName: 'webkit' },
     },
   ],

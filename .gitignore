@@ -1,0 +1,12 @@
+node_modules/
+reports/
+test-results/
+playwright-report/
+playwright/.cache/
+allure-results/
+*.log
+.DS_Store
+
+# Local secrets — copy from *.env.example
+config/dev.env
+config/stage.env
