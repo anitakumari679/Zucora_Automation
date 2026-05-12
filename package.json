@@ -10,6 +10,7 @@
     "allure-playwright": "^3.7.2"
   },
   "dependencies": {
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "pg": "^8.20.0"
   }
 }

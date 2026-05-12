@@ -1,6 +1,6 @@
 /**
  * API Configuration for backend services
- * These values are loaded from environment-specific .env files (qa.env or stg.env)
+ * These values are loaded from environment-specific .env files
  * The environment is determined by the TEST_ENV variable
  */
 
@@ -14,20 +14,30 @@ const baseUri = (
   'https://api.stage.horizon.ths.agency/api/v1'
 ).replace(/\/$/, '');
 
-const loginEndpoint = (
-  process.env.API_LOGIN_ENDPOINT ||
-  '/auth/login'
-).startsWith('/')
-  ? process.env.API_LOGIN_ENDPOINT || '/auth/login'
-  : `/${process.env.API_LOGIN_ENDPOINT}`;
+export const endpoints = {
+  auth: {
+    login: '/auth/login',
+    resendOtp: '/auth/resend-otp',
+    verifyOtp: '/auth/verify-otp',
+    logout: '/auth/logout',
+  },
+  forgot_password:{
+   forgotRequest: 'auth/password/reset-request',
+   resetPassword: 'auth/password/reset',
+   resetLinkCheck: 'auth/password/reset-check'
+  },
+  users: {
+    profile: '/users/profile',
+  },
+};
 
 export const ApiConfig = {
   baseUri,
-  endpoints: {
-    login: loginEndpoint,
-  },
+  endpoints,
 
-  buildUrl: (endpoint: string) => {
-    return `${baseUri}${endpoint}`;
+  buildUrl(endpoint: string): string {
+    return `${baseUri}${
+      endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    }`;
   },
 };
