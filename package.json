@@ -2,7 +2,9 @@
   "name": "playwright-framework",
   "version": "1.0.0",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui-chromium --project=ui-firefox --project=ui-webkit"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
@@ -11,6 +13,7 @@
   },
   "dependencies": {
     "dotenv": "^17.4.2",
+    "googleapis": "^171.4.0",
     "openai": "^6.37.0",
     "pg": "^8.20.0"
   }

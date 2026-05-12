@@ -21,10 +21,10 @@ export const endpoints = {
     verifyOtp: '/auth/verify-otp',
     logout: '/auth/logout',
   },
-  forgot_password:{
-   forgotRequest: 'auth/password/reset-request',
-   resetPassword: 'auth/password/reset',
-   resetLinkCheck: 'auth/password/reset-check'
+  forgot_password: {
+    forgotRequest: '/auth/password/reset-request',
+    resetPassword: '/auth/password/reset',
+    resetLinkCheck: '/auth/password/reset-check',
   },
   users: {
     profile: '/users/profile',

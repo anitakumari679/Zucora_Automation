@@ -5,7 +5,7 @@ import { ApiClient } from '../../../fixtures/api-client';
 
 // Password reset Link 
 
-test('Verify forgot passsword link functionality', async ({ request }) => {
+test('Verify forgot password link functionality', async ({ request }) => {
     const apiClient = new ApiClient(request);
   
     const loginUrl = ApiConfig.buildUrl(

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { ApiConfig } from '../../../config/api-config';
 import { TestData } from '../../../config/test-data';
 import { ApiClient } from '../../../fixtures/api-client';
+import { GmailHelper } from '../../../fixtures/otp-helper';
 
 // Valid Login Test
 
@@ -16,9 +17,7 @@ test('Verify user can login successfully', async ({ request }) => {
     }
   );
   const responseBody = await response.json();
-  console.log(responseBody);
   expect(response.status()).toBe(200);
-  console.log(responseBody);
   expect(responseBody.success).toBe(true);
   expect(responseBody.message.title)
     .toBe('OTP sent successfully.');
@@ -32,4 +31,13 @@ test('Verify user can login successfully', async ({ request }) => {
     .toBe('string');
   expect(responseBody.info.login_token.length)
     .toBeGreaterThan(0);
+  const otp = await GmailHelper.getOtp();
+
+  console.log('OTP:', otp);
+  // await request.post('/auth/verify-otp', {
+  //   data: {
+  //     otp,
+  //     login_token,
+  //   },
+  // });
 });

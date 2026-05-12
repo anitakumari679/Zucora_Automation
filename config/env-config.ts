@@ -5,29 +5,28 @@
  * The environment can be specified via the TEST_ENV environment variable.
  * 
  * Usage:
- *   TEST_ENV=qa npx playwright test    # Run tests against QA environment
+ *   TEST_ENV=dev npx playwright test    # Run tests against DEV environment
  *   TEST_ENV=stg npx playwright test   # Run tests against STG environment
  * 
- * Default environment is 'qa' if TEST_ENV is not specified.
+ * Default environment is 'dev' if TEST_ENV is not specified.
  */
 
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
-export type Environment = 'qa' | 'stg';
+export type Environment = 'dev' | 'stg';
 
 /**
  * Get the current environment from TEST_ENV variable
- * Defaults to 'qa' if not specified
+ * Defaults to 'dev' if not specified
  */
 export function getEnvironment(): Environment {
   const env = process.env.TEST_ENV?.toLowerCase();
   if (env === 'stg' || env === 'stage' || env === 'staging') {
     return 'stg';
   }
-  return 'qa';
+  return 'dev';
 }
-
 /**
  * Get the environment file path based on the current environment
  */
@@ -47,11 +46,15 @@ export function loadEnvironment(): void {
 }
 
 /**
- * Get the admin portal URL based on current environment
+ * Admin portal base URL: prefers BASE_URL from the loaded env file, then env-specific defaults.
  */
 export function getAdminBaseUrl(): string {
+  const fromEnv = process.env.BASE_URL?.trim().replace(/\/+$/, '');
+  if (fromEnv) return fromEnv;
   const env = getEnvironment();
-  return env === 'stg' ? 'https://stage.horizon.ths.agency' : 'https://stage.horizon.ths.agency/';
+  return env === 'stg'
+    ? 'https://stage.horizon.ths.agency'
+    : 'https://dev.horizon.ths.agency';
 }
 
 /**
