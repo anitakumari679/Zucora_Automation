@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { ApiConfig } from '../../../../config/api-config';
-import { TestData } from '../../../../config/test-data';
-import { ApiClient } from '../../../../fixtures/api-client';
+import { ApiConfig } from '../../../config/api-config';
+import { TestData } from '../../../config/test-data';
+import { ApiClient } from '../../../fixtures/api-client';
 
 // Valid Login Test
 
