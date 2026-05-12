@@ -11,7 +11,7 @@ export const TestData = {
     userEmail: process.env.PATIENT_EMAIL || 'anita.kumari@techindustan.com'  
   },
   password: {
-    userPassword: process.env.VALID_DOB || 'Password@123'
+    userPassword: process.env.VALID_PASSWORD || 'Password@123'
   },
   errorMessages: {
     invalidDob: process.env.INVALID_DOB_ERROR_MESSAGE || 'Use MM/DD/YYYY format',
