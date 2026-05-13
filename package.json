@@ -7,6 +7,7 @@
     "test:ui": "playwright test --project=ui-chromium --project=ui-firefox --project=ui-webkit"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.6.0",
     "@playwright/test": "^1.52.0",
     "@types/node": "^25.6.2",
     "allure-playwright": "^3.7.2"

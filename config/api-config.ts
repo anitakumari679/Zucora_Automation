@@ -18,7 +18,7 @@ export const endpoints = {
   auth: {
     login: '/auth/login',
     resendOtp: '/auth/resend-otp',
-    verifyOtp: '/auth/verify-otp',
+    verifyOtp: '/auth/verify',
     logout: '/auth/logout',
   },
   forgot_password: {
@@ -29,6 +29,16 @@ export const endpoints = {
   users: {
     profile: '/users/profile',
   },
+  onboarding: {
+    userOnboarding: '/user/onboarding',
+  },
+  role: {
+    getRole: '/role',
+    rolePermissions: '/role/permissions'
+  },
+  user:{
+    getUserList: '/user'
+  }
 };
 
 export const ApiConfig = {
