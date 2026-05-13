@@ -19,7 +19,6 @@ test('Verify forgot password link functionality', async ({ request }) => {
     const responseBody = await response.json();
   
     console.log('Response Body:', responseBody);
-  
     expect(response.status()).toBe(200);
   
     expect(responseBody.success).toBe(true);
