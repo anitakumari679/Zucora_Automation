@@ -23,6 +23,8 @@ export async function performLoginForAccessToken(
   const accountEmail = TestData.credentials.userEmail;
   const accountPassword = TestData.password.userPassword;
 
+  const otpRequestedAt = Date.now();
+
   const loginResponse = await apiClient.post(
     `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.login)}`,
     {
@@ -48,7 +50,10 @@ export async function performLoginForAccessToken(
   expect(loginBody.info.login_token.length).toBeGreaterThan(0);
 
   const loginToken = loginBody.info.login_token as string;
-  const otp = await GmailHelper.getLatestOtp();
+  const otp = await GmailHelper.getLatestOtp({
+    requestedAfterMs: otpRequestedAt,
+    recipientEmail: accountEmail,
+  });
   console.log('OTP:', otp);
   const verifyResponse = await apiClient.post(
     `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.verifyOtp)}`,
@@ -69,7 +74,7 @@ export async function performLoginForAccessToken(
     `verifyOtp failed: ${verifyResponse.status()} body=${JSON.stringify(verifyBody)}`
   ).toBe(200);
   expect(verifyBody.success).toBe(true);
-  expect(verifyBody.message.title).toBe('2FA verified successfully');
+  expect(verifyBody.message.title).toBe('2FA Verified Successfully');
   expect(verifyBody.message.description).toBe(
     'Your identity has been successfully verified.'
   );

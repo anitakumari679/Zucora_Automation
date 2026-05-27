@@ -135,6 +135,8 @@ test('@validLogin: Verify login with valid credentials', async ({ request }) => 
   const accountEmail = TestData.credentials.userEmail;
   const accountPassword = TestData.password.userPassword;
 
+  const otpRequestedAt = Date.now();
+
   const response = await apiClient.post(
     `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.login)}`,
     {
@@ -160,7 +162,10 @@ test('@validLogin: Verify login with valid credentials', async ({ request }) => 
     .toBe('string');
   expect(responseBody.info.login_token.length)
     .toBeGreaterThan(0);
-  const otp = await GmailHelper.getLatestOtp();
+  const otp = await GmailHelper.getLatestOtp({
+    requestedAfterMs: otpRequestedAt,
+    recipientEmail: accountEmail,
+  });
   const loginToken = responseBody.info.login_token;
 
   const verifyOtpResponse = await apiClient.post(
