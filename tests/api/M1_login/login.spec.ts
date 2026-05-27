@@ -3,7 +3,7 @@ import { ApiConfig } from '../../../config/api-config';
 import { TestData } from '../../../config/test-data';
 import { ApiClient } from '../../../fixtures/api-client';
 import { authStorage } from '../../../fixtures/auth-storage';
-import { performLoginForAccessToken } from '../../../fixtures/login';
+import { GmailHelper } from '../../../utils/gmail-helper';
 
 test('@incorrectPassword: Verify attempt login with incorrect password', async ({ request }) => {
   const apiClient = new ApiClient(request);
@@ -18,7 +18,7 @@ test('@incorrectPassword: Verify attempt login with incorrect password', async (
   const responseBody = await response.json();
   expect(response.status()).toBe(401);
   expect(responseBody.success).toBe(false);
-  expect(responseBody.errors.title).toBe('Login unsuccessful.');
+  expect(responseBody.errors.title).toBe('Log In Unsuccessful');
   expect(responseBody.errors.description).toBe(
     'Check your email and password and try again.'
   );
@@ -69,7 +69,7 @@ test('@incorrectEmail: Verify attempt login with incorrect email payload', async
   const responseBody = await response.json();
   expect(response.status()).toBe(401);
   expect(responseBody.success).toBe(false);
-  expect(responseBody.errors.title).toBe('Login unsuccessful.');
+  expect(responseBody.errors.title).toBe('Log In Unsuccessful');
   expect(responseBody.errors.description).toBe(
     'Check your email and password and try again.'
   );
@@ -88,7 +88,7 @@ test('@nonExistingEmail: Verify attempt login with non-existing email payload', 
   const responseBody = await response.json();
   expect(response.status()).toBe(401);
   expect(responseBody.success).toBe(false);
-  expect(responseBody.errors.title).toBe('Login unsuccessful.');
+  expect(responseBody.errors.title).toBe('Log In Unsuccessful');
   expect(responseBody.errors.description).toBe(
     'Check your email and password and try again.'
   );
@@ -107,7 +107,7 @@ test('@invalidEmailFormat: Verify attempt login with invalid email format payloa
   const responseBody = await response.json();
   expect(response.status()).toBe(401);
   expect(responseBody.success).toBe(false);
-  expect(responseBody.errors.title).toBe('Login unsuccessful.');
+  expect(responseBody.errors.title).toBe('Log In Unsuccessful');
   expect(responseBody.errors.description).toBe('Check your email and password and try again.');
 });
 
@@ -124,20 +124,22 @@ test('@invalidCreds: Verify attempt login with invalid credentials payload', asy
   const responseBody = await response.json();
   expect(response.status()).toBe(401);
   expect(responseBody.success).toBe(false);
-  expect(responseBody.errors.title).toBe('Login unsuccessful.');
+  expect(responseBody.errors.title).toBe('Log In Unsuccessful');
   expect(responseBody.errors.description).toBe('Check your email and password and try again.');
 });
 
-// Valid Login Test (super admin — verify email must match login email)
+// Valid Login Test — credentials from USER_EMAIL / VALID_PASSWORD in env file
+
 test('@validLogin: Verify login with valid credentials', async ({ request }) => {
   const apiClient = new ApiClient(request);
-  const accountEmail = TestData.credentials.superAdminEmail;
+  const accountEmail = TestData.credentials.userEmail;
+  const accountPassword = TestData.password.userPassword;
 
   const response = await apiClient.post(
     `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.login)}`,
     {
       email: accountEmail,
-      password: TestData.password.superAdminPassword
+      password: accountPassword,
     }
   );
   const responseBody = await response.json();
@@ -158,8 +160,7 @@ test('@validLogin: Verify login with valid credentials', async ({ request }) => 
     .toBe('string');
   expect(responseBody.info.login_token.length)
     .toBeGreaterThan(0);
-  const otp = String(TestData.otp.validOTP);
-
+  const otp = await GmailHelper.getLatestOtp();
   const loginToken = responseBody.info.login_token;
 
   const verifyOtpResponse = await apiClient.post(
@@ -182,7 +183,7 @@ test('@validLogin: Verify login with valid credentials', async ({ request }) => 
     )}`
   ).toBe(200);
   expect(verifyOtpResponseBody.success).toBe(true);
-  expect(verifyOtpResponseBody.message.title).toBe('2FA verified successfully.');
+  expect(verifyOtpResponseBody.message.title).toBe('2FA Verified Successfully');
   expect(verifyOtpResponseBody.message.description).toBe(
     'Your identity has been successfully verified.'
   );

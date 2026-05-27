@@ -3,6 +3,7 @@ import { ApiConfig } from '../config/api-config';
 import { TestData } from '../config/test-data';
 import { ApiClient } from './api-client';
 import { authStorage } from './auth-storage';
+import { GmailHelper } from '../utils/gmail-helper';
 
 export type LoginFixture = {
   /** JWT access token from `/auth/login` → `/auth/verify` flow */
@@ -19,8 +20,8 @@ export async function performLoginForAccessToken(
   const apiClient = new ApiClient(request);
 
   // OTP is issued for this account — verify must use the same email as login.
-  const accountEmail = TestData.credentials.superAdminEmail;
-  const accountPassword = TestData.password.superAdminPassword;
+  const accountEmail = TestData.credentials.userEmail;
+  const accountPassword = TestData.password.userPassword;
 
   const loginResponse = await apiClient.post(
     `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.login)}`,
@@ -47,8 +48,8 @@ export async function performLoginForAccessToken(
   expect(loginBody.info.login_token.length).toBeGreaterThan(0);
 
   const loginToken = loginBody.info.login_token as string;
-  const otp = String(TestData.otp.validOTP);
-
+  const otp = await GmailHelper.getLatestOtp();
+  console.log('OTP:', otp);
   const verifyResponse = await apiClient.post(
     `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.verifyOtp)}`,
     {
@@ -68,7 +69,7 @@ export async function performLoginForAccessToken(
     `verifyOtp failed: ${verifyResponse.status()} body=${JSON.stringify(verifyBody)}`
   ).toBe(200);
   expect(verifyBody.success).toBe(true);
-  expect(verifyBody.message.title).toBe('2FA verified successfully.');
+  expect(verifyBody.message.title).toBe('2FA verified successfully');
   expect(verifyBody.message.description).toBe(
     'Your identity has been successfully verified.'
   );

@@ -31,12 +31,13 @@ export const endpoints = {
   },
   onboarding: {
     userOnboarding: '/user/onboarding',
+    deleteUser: '/user'
   },
   role: {
     getRole: '/role',
     rolePermissions: '/role/permissions'
   },
-  user:{
+  userList:{
     getUserList: '/user'
   }
 };
