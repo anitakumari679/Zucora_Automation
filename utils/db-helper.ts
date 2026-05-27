@@ -115,7 +115,14 @@ export class PostgresHelper {
    * Close DB Pool
    */
   async close(): Promise<void> {
-    await PostgresHelper.pool.end();
-    console.log('[DB] PostgreSQL pool closed');
+
+    if (PostgresHelper.pool) {
+  
+      await PostgresHelper.pool.end();
+  
+      PostgresHelper.pool = null;
+  
+      console.log('[DB] PostgreSQL pool closed');
+    }
   }
 }

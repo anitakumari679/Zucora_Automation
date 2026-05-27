@@ -32,7 +32,8 @@ export function getEnvironment(): Environment {
  */
 export function getEnvFilePath(): string {
   const env = getEnvironment();
-  return path.resolve(__dirname, `${env}.env`);
+  const fileName = env === 'stg' ? 'stage.env' : 'dev.env';
+  return path.resolve(__dirname, fileName);
 }
 
 /**
@@ -40,9 +41,12 @@ export function getEnvFilePath(): string {
  * This should be called at the start of test execution
  */
 export function loadEnvironment(): void {
+  const sharedEnvPath = path.resolve(__dirname, '.env');
+  dotenv.config({ path: sharedEnvPath, override: false });
+
   const envFilePath = getEnvFilePath();
   console.log(`Loading environment configuration from: ${envFilePath}`);
-  dotenv.config({ path: envFilePath });
+  dotenv.config({ path: envFilePath, override: true });
 }
 
 /**

@@ -8,7 +8,10 @@ export const TestData = {
     baseUrl: process.env.PATIENT_URL || '',
   },
   credentials: {
-    userEmail: process.env.USER_EMAIL || 'anita.kumari@techindustan.com',
+    userEmail:
+      process.env.USER_EMAIL ||
+      process.env.PATIENT_EMAIL ||
+      'anita.kumari@techindustan.com',
     invalidEmail: process.env.INVALID_EMAIL || 'invalid.email@techindustan.com',
     emptyEmail: process.env.EMPTY_EMAIL || '',
     incorrectEmail: process.env.INCORRECT_EMAIL || 'anita.kumari+0098@techindustan.com',
@@ -36,5 +39,10 @@ export const TestData = {
   forgotPassword: {
     url: process.env.FORGOT_PASSWORD_URL || '',
     invalidEmail: process.env.FORGOT_PASSWORD_INVALID_EMAIL || ''
-  }
-};
+  },
+  gmail: {
+    clientId: process.env.GMAIL_CLIENT_ID || process.env.CLIENT_ID || '',
+    clientSecret: process.env.GMAIL_CLIENT_SECRET || process.env.CLIENT_SECRET || '',
+    refreshTokken: process.env.GMAIL_REFRESH_TOKEN || process.env.REFRESH_TOKEN || '',
+  },
+}

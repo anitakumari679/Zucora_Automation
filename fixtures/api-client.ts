@@ -17,5 +17,12 @@ export class ApiClient {
       headers: { ...jsonHeaders, ...headers },
     });
   }
+
+  async delete(url: string, payload: object, headers: Record<string, string> = {}) {
+    return await this.request.delete(url, {
+      data: payload,
+      headers: { ...jsonHeaders, ...headers },
+    });
+  }
 }
 

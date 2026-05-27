@@ -9,7 +9,7 @@ test.describe('User onboarding', () => {
   }) => {
     const api = new ApiClient(request);
     const response = await api.get(
-      ApiConfig.buildUrl(ApiConfig.endpoints.role.getRole),
+      ApiConfig.buildUrl(ApiConfig.endpoints.userList.getUserList),
       bearerAuthHeaders(accessToken)
     );
     const body = await response.json();
