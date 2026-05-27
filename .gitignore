@@ -10,3 +10,4 @@ allure-results/
 # Local secrets — copy from *.env.example
 config/dev.env
 config/stage.env
+config/.env
