@@ -1,11 +1,18 @@
-import { google } from 'googleapis';
+import { google, gmail_v1 } from 'googleapis';
 import { TestData } from '../config/test-data';
 
-export class GmailHelper {
+export type GetLatestOtpOptions = {
+  /** Only accept emails received at or after this time (ms since epoch). Set just before calling login. */
+  requestedAfterMs: number;
+  /** Filter OTP emails sent to this inbox (optional). */
+  recipientEmail?: string;
+  /** Max wait time for the OTP email. */
+  timeoutMs?: number;
+  /** Delay between Gmail polls. */
+  pollIntervalMs?: number;
+};
 
-  /**
-   * Create authenticated Gmail client
-   */
+export class GmailHelper {
   private static async getGmailClient() {
     if (
       !TestData.gmail.clientId ||
@@ -13,150 +20,153 @@ export class GmailHelper {
       !TestData.gmail.refreshTokken
     ) {
       throw new Error(
-        'Missing Gmail OAuth env vars. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN in your env file.'
+        'Missing Gmail OAuth env vars. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN in config/.env'
       );
     }
 
-    const oAuth2Client =
-      new google.auth.OAuth2(
-        TestData.gmail.clientId,
-        TestData.gmail.clientSecret
-      );
+    const oAuth2Client = new google.auth.OAuth2(
+      TestData.gmail.clientId,
+      TestData.gmail.clientSecret
+    );
 
     oAuth2Client.setCredentials({
-      refresh_token:
-        TestData.gmail.refreshTokken,
+      refresh_token: TestData.gmail.refreshTokken,
     });
 
-    return google.gmail({
-      version: 'v1',
-      auth: oAuth2Client,
-    });
+    return google.gmail({ version: 'v1', auth: oAuth2Client });
+  }
+
+  /** Recursively collect text/plain and text/html bodies from nested MIME parts. */
+  private static extractBodies(
+    payload?: gmail_v1.Schema$MessagePart
+  ): string[] {
+    if (!payload) return [];
+
+    const bodies: string[] = [];
+
+    if (payload.body?.data) {
+      bodies.push(
+        Buffer.from(payload.body.data, 'base64').toString('utf-8')
+      );
+    }
+
+    for (const part of payload.parts ?? []) {
+      bodies.push(...this.extractBodies(part));
+    }
+
+    return bodies;
+  }
+
+  private static extractOtpFromMessage(
+    message: gmail_v1.Schema$Message
+  ): string | null {
+    const bodies = this.extractBodies(message.payload);
+    const combined = bodies.join('\n');
+
+    // Prefer OTP shown in the verification block (Zucora template)
+    const labeledMatch = combined.match(
+      /one time code:\s*(\d{6})/i
+    );
+    if (labeledMatch) return labeledMatch[1];
+
+    const matches = combined.match(/\b\d{6}\b/g) ?? [];
+    if (!matches.length) return null;
+
+    // Last 6-digit token is usually the OTP in HTML templates
+    return matches[matches.length - 1];
+  }
+
+  private static async markAsRead(
+    gmail: gmail_v1.Gmail,
+    messageId: string
+  ): Promise<void> {
+    try {
+      await gmail.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: { removeLabelIds: ['UNREAD'] },
+      });
+    } catch {
+      // Non-fatal: read-only Gmail scope still allows fetching OTP
+    }
   }
 
   /**
-   * Fetch latest unread OTP email
+   * Poll Gmail until the OTP email for the current login attempt arrives.
+   * Pass `requestedAfterMs` immediately before calling the login API.
    */
-  static async getLatestOtp(): Promise<string> {
+  static async getLatestOtp(
+    options: GetLatestOtpOptions
+  ): Promise<string> {
+    const {
+      requestedAfterMs,
+      recipientEmail,
+      timeoutMs = 60_000,
+      pollIntervalMs = 3_000,
+    } = options;
 
-    const gmail =
-      await this.getGmailClient();
+    const gmail = await this.getGmailClient();
+    const deadline = Date.now() + timeoutMs;
+    let lastError = 'No OTP email found';
 
-    // Wait for email delivery
-    await new Promise(resolve =>
-      setTimeout(resolve, 5000)
-    );
-
-    /**
-     * Fetch latest unread OTP email
-     */
-    const response =
-      await gmail.users.messages.list({
-        userId: 'me',
-
-        maxResults: 1,
-
-        q: `
-          subject:"Login OTP"
-          is:unread
-          newer_than:2m
-        `,
-      });
-
-    const messages =
-      response.data.messages;
-
-    if (!messages?.length) {
-      throw new Error(
-        'No unread OTP email found'
-      );
-    }
-
-    /**
-     * Get email content
-     */
-    const message =
-      await gmail.users.messages.get({
-        userId: 'me',
-
-        id: messages[0].id!,
-      });
-
-    let emailBody = '';
-
-    /**
-     * Handle multipart emails
-     */
-    const parts =
-      message.data.payload?.parts;
-
-    if (parts?.length) {
-
-      for (const part of parts) {
-
-        if (
-          part.mimeType === 'text/plain' &&
-          part.body?.data
-        ) {
-
-          emailBody =
-            Buffer.from(
-              part.body.data,
-              'base64'
-            ).toString();
-
-          break;
-        }
+    while (Date.now() < deadline) {
+      const queryParts = ['subject:"Login OTP"', 'newer_than:15m'];
+      if (recipientEmail) {
+        queryParts.push(`to:${recipientEmail}`);
       }
+
+      const response = await gmail.users.messages.list({
+        userId: 'me',
+        maxResults: 10,
+        q: queryParts.join(' '),
+      });
+
+      const messages = response.data.messages ?? [];
+
+      const fullMessages: Array<{
+        id: string;
+        internalDate: number;
+        message: gmail_v1.Schema$Message;
+      }> = [];
+
+      for (const msg of messages) {
+        if (!msg.id) continue;
+
+        const full = await gmail.users.messages.get({
+          userId: 'me',
+          id: msg.id,
+          format: 'full',
+        });
+
+        const internalDate = Number(full.data.internalDate ?? 0);
+        // Only emails that arrived after this login attempt (2s buffer for clock skew)
+        if (internalDate < requestedAfterMs - 2_000) continue;
+
+        fullMessages.push({
+          id: msg.id,
+          internalDate,
+          message: full.data,
+        });
+      }
+
+      // Newest matching email first
+      fullMessages.sort((a, b) => b.internalDate - a.internalDate);
+
+      for (const { id, message } of fullMessages) {
+        const otp = this.extractOtpFromMessage(message);
+        if (!otp) continue;
+
+        console.log(`Latest OTP: ${otp}`);
+        await this.markAsRead(gmail, id);
+        return otp;
+      }
+
+      lastError = `No OTP email after ${new Date(requestedAfterMs).toISOString()} (retrying…)`;
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     }
 
-    /**
-     * Fallback for non-multipart emails
-     */
-    if (
-      !emailBody &&
-      message.data.payload?.body?.data
-    ) {
-
-      emailBody =
-        Buffer.from(
-          message.data.payload.body.data,
-          'base64'
-        ).toString();
-    }
-
-    console.log('\n===== EMAIL BODY =====\n');
-    console.log(emailBody);
-
-    /**
-     * Extract 6-digit OTP
-     */
-    const otpMatch =
-      emailBody.match(/\b\d{6}\b/);
-
-    if (!otpMatch) {
-      throw new Error(
-        'OTP not found in email'
-      );
-    }
-
-    /**
-     * Mark email as read
-     */
-    // await gmail.users.messages.modify({
-    //   userId: 'me',
-
-    //   id: messages[0].id!,
-
-    //   requestBody: {
-    //     removeLabelIds: ['UNREAD'],
-    //   },
-    // });
-
-    console.log(
-      `Latest OTP: ${otpMatch[0]}`
+    throw new Error(
+      `${lastError}. Check Gmail inbox access and that OTP emails go to the account linked to GMAIL_REFRESH_TOKEN.`
     );
-
-    return otpMatch[0];
   }
 }
