@@ -1,3 +1,4 @@
+import { faker } from '@faker-js/faker';
 import { test, expect } from '@playwright/test';
 import { ApiConfig } from '../../../config/api-config';
 import { TestData } from '../../../config/test-data';
@@ -5,6 +6,8 @@ import { ApiClient } from '../../../fixtures/api-client';
 import { authStorage } from '../../../fixtures/auth-storage';
 import { GmailHelper } from '../../../utils/gmail-helper';
 
+
+test.describe('Forgot Password Module', () => {
 test('@forgotPasswordRequest: Verify forgot password link functionality', async ({ request }) => {
   const apiClient = new ApiClient(request);
 
@@ -21,6 +24,85 @@ test('@forgotPasswordRequest: Verify forgot password link functionality', async 
   expect(responseBody.message.title).toBe(
     'Password Reset Link Sent'
   );
+});
+
+test('@forgotPasswordUnregisteredEmail: Verify reset password request for unregistered email', async ({ request }) => {
+  const apiClient = new ApiClient(request);
+
+  const response = await apiClient.post(
+    ApiConfig.buildUrl(ApiConfig.endpoints.forgot_password.forgotRequest),
+    {
+      email: TestData.credentials.nonExistingEmail,
+    }
+  );
+  const responseBody = await response.json();
+
+  expect(response.status()).toBe(202);
+  expect(responseBody.success).toBe(true);
+  expect(responseBody.info).toBeNull();
+  expect(responseBody.message.title).toBe('Request Accepted');
+  expect(responseBody.message.description).toBe(
+    'If an account is associated with this email, a reset link has been sent.'
+  );
+  console.log('Message description:',responseBody.message.description);
+  console.log('Correct response code returned:', response.status());
+});
+
+
+test('@forgotPasswordResetToken', async ({ request }) => {
+  const apiClient = new ApiClient(request);
+  const requestedAt = Date.now();
+  const newPassword = `Admin@${faker.string.alphanumeric(8)}${faker.number.int({
+    min: 10,
+    max: 99,
+  })}`;
+
+  const response = await apiClient.post(
+    ApiConfig.buildUrl(ApiConfig.endpoints.forgot_password.forgotRequest),
+    {
+      email: TestData.credentials.csUserEmail,
+    }
+  );
+  const responseBody = await response.json();
+
+  expect(response.status()).toBe(200);
+  expect(responseBody.success).toBe(true);
+
+  const resetLink = await GmailHelper.getLatestPasswordResetLink({
+    requestedAfterMs: requestedAt,
+    recipientEmail: TestData.credentials.csUserEmail,
+  });
+
+  expect(resetLink).toContain('/reset-password');
+  expect(resetLink).toContain('token=');
+
+  const resetUrl = new URL(resetLink);
+  const resetToken = resetUrl.searchParams.get('token');
+  console.log('Extracted reset token:', resetToken);
+  expect(resetToken).toBeTruthy();
+
+  const resetPasswordResponse = await apiClient.post(
+    ApiConfig.buildUrl(ApiConfig.endpoints.forgot_password.resetPassword),
+    {
+      token: resetToken,
+      new_password: newPassword,
+    }
+  );
+  const resetPasswordBody = await resetPasswordResponse.json();
+
+  expect(
+    resetPasswordResponse.ok(),
+    `Password reset failed: ${resetPasswordResponse.status()} ${JSON.stringify(
+      resetPasswordBody
+    )}`
+  ).toBe(true);
+  expect(resetPasswordResponse.status()).toBe(200);
+  expect(resetPasswordBody.success).toBe(true);
+  expect(resetPasswordBody.message.title).toBe(
+    'Password Updated Successfully'
+  );
+  console.log('Password reset successful with new password:', newPassword);
+
 });
 
 test('@incorrectPassword: Verify attempt login with incorrect password', async ({ request }) => {
@@ -146,6 +228,27 @@ test('@invalidCreds: Verify attempt login with invalid credentials payload', asy
   expect(responseBody.errors.description).toBe('Check your email and password and try again.');
 });
 
+test('@invalidContentType: Verify login returns unsupported media type for incorrect content type', async ({ request }) => {
+  const apiClient = new ApiClient(request);
+
+  const response = await apiClient.post(
+    `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.login)}`,
+    {
+      email: TestData.credentials.userEmail,
+      password: TestData.password.userPassword,
+    },
+    {
+      'Content-Type': 'text/plain',
+    }
+  );
+  const responseBody = await response.json();
+  expect(response.status()).toBe(415);
+  console.log('Response body for invalid content type:', responseBody);
+  expect(responseBody.success).toBe(false);
+  expect(responseBody.errors.title).toBe('Unsupported Media Type');
+  expect(responseBody.errors.description).toBe('Content-Type must be application/json.');
+});
+
 // Valid Login Test — credentials from USER_EMAIL / VALID_PASSWORD in env file
 
 test('@validLogin: Verify login with valid credentials', async ({ request }) => {
@@ -222,4 +325,6 @@ test('@validLogin: Verify login with valid credentials', async ({ request }) => 
   expect(Array.isArray(info.roles)).toBe(true);
   expect(Array.isArray(info.custom_permissions)).toBe(true);
   authStorage.accessToken = info.access_token;
+});
+
 });

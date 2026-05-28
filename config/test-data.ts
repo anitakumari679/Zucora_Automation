@@ -14,19 +14,21 @@ export const TestData = {
     baseUrl: process.env.PATIENT_URL || '',
   },
   credentials: {
-    userEmail: requiredEnv('USER_EMAIL', 'PATIENT_EMAIL'),
+    userEmail: requiredEnv('USER_EMAIL', ''),
     invalidEmail: process.env.INVALID_EMAIL || 'invalid.email@example.com',
     emptyEmail: process.env.EMPTY_EMAIL || '',
     incorrectEmail: process.env.INCORRECT_EMAIL || 'invalid.user@example.com',
     nonExistingEmail: process.env.NON_EXISTING_EMAIL || 'non.existing.user@example.com',
     invalidEmailFormat: process.env.INVALID_EMAIL_FORMAT || 'invalid.email.example.com',
-    superAdminEmail: process.env.SUPER_ADMIN_EMAIL || ''
+    superAdminEmail: process.env.SUPER_ADMIN_EMAIL || '',
+    csUserEmail: process.env.CS_USER || '',
   },
   password: {
     userPassword: validPassword,
     incorrectPassword: process.env.INCORRECT_PASSWORD || `${validPassword}__invalid`,
     emptyPassword: process.env.EMPTY_PASSWORD || '',
-    superAdminPassword: process.env.SUPER_ADMIN_PASSWORD || ''
+    superAdminPassword: process.env.SUPER_ADMIN_PASSWORD || '',
+    csUserPassword: process.env.CS_USER_PASSWORD || '',
   },
   otp: {
     validOTP: process.env.OTP_CODE || '123456',

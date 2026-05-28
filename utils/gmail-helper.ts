@@ -12,6 +12,17 @@ export type GetLatestOtpOptions = {
   pollIntervalMs?: number;
 };
 
+export type GetLatestPasswordResetLinkOptions = {
+  /** Only accept emails received at or after this time (ms since epoch). Set just before requesting reset. */
+  requestedAfterMs: number;
+  /** Filter password reset emails sent to this inbox (optional). */
+  recipientEmail?: string;
+  /** Max wait time for the password reset email. */
+  timeoutMs?: number;
+  /** Delay between Gmail polls. */
+  pollIntervalMs?: number;
+};  
+
 export class GmailHelper {
   private static async getGmailClient() {
     if (
@@ -74,6 +85,49 @@ export class GmailHelper {
 
     // Last 6-digit token is usually the OTP in HTML templates
     return matches[matches.length - 1];
+  }
+
+  private static decodeHtmlEntities(value: string): string {
+    return value
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+        String.fromCharCode(parseInt(hex, 16))
+      )
+      .replace(/&#(\d+);/g, (_, decimal: string) =>
+        String.fromCharCode(parseInt(decimal, 10))
+      )
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+
+  private static extractPasswordResetLinkFromMessage(
+    message: gmail_v1.Schema$Message
+  ): string | null {
+    const bodies = this.extractBodies(message.payload);
+    const combined = bodies.join('\n');
+
+    const resetButtonMatch = combined.match(
+      /href=["']([^"']+)["'][^>]*>\s*Reset My Password\s*</i
+    );
+    if (resetButtonMatch) {
+      return this.decodeHtmlEntities(resetButtonMatch[1]);
+    }
+
+    const resetUrlMatch = combined.match(
+      /https?:\/\/[^\s"'<>]+(?:reset|password)[^\s"'<>]*/i
+    );
+    if (resetUrlMatch) {
+      return this.decodeHtmlEntities(resetUrlMatch[0]);
+    }
+
+    const fallbackUrlMatch = combined.match(/https?:\/\/[^\s"'<>]+/i);
+    if (fallbackUrlMatch) {
+      return this.decodeHtmlEntities(fallbackUrlMatch[0]);
+    }
+
+    return null;
   }
 
   private static async markAsRead(
@@ -166,6 +220,84 @@ export class GmailHelper {
 
     throw new Error(
       `${lastError}. Check Gmail inbox access and that OTP emails go to the account linked to GMAIL_REFRESH_TOKEN.`
+    );
+  }
+
+   /**
+   * Poll Gmail until the latest password reset email arrives, then return its reset link.
+   * Pass `requestedAfterMs` immediately before calling the forgot-password API.
+   */
+  static async getLatestPasswordResetLink(
+    options: GetLatestPasswordResetLinkOptions
+  ): Promise<string> {
+    const {
+      requestedAfterMs,
+      recipientEmail,
+      timeoutMs = 60_000,
+      pollIntervalMs = 3_000,
+    } = options;
+
+    const gmail = await this.getGmailClient();
+    const deadline = Date.now() + timeoutMs;
+    let lastError = 'No password reset email found';
+
+    while (Date.now() < deadline) {
+      const queryParts = ['subject:"Reset your password"', 'newer_than:15m'];
+      if (recipientEmail) {
+        queryParts.push(`to:${recipientEmail}`);
+      }
+
+      const response = await gmail.users.messages.list({
+        userId: 'me',
+        maxResults: 10,
+        q: queryParts.join(' '),
+      });
+
+      const messages = response.data.messages ?? [];
+
+      const fullMessages: Array<{
+        id: string;
+        internalDate: number;
+        message: gmail_v1.Schema$Message;
+      }> = [];
+
+      for (const msg of messages) {
+        if (!msg.id) continue;
+
+        const full = await gmail.users.messages.get({
+          userId: 'me',
+          id: msg.id,
+          format: 'full',
+        });
+
+        const internalDate = Number(full.data.internalDate ?? 0);
+        if (internalDate < requestedAfterMs - 2_000) continue;
+
+        fullMessages.push({
+          id: msg.id,
+          internalDate,
+          message: full.data,
+        });
+      }
+
+      fullMessages.sort((a, b) => b.internalDate - a.internalDate);
+
+      for (const { id, message } of fullMessages) {
+        const resetLink = this.extractPasswordResetLinkFromMessage(message);
+        if (!resetLink) continue;
+
+        await this.markAsRead(gmail, id);
+        return resetLink;
+      }
+
+      lastError = `No password reset email after ${new Date(
+        requestedAfterMs
+      ).toISOString()} (retrying...)`;
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
+
+    throw new Error(
+      `${lastError}. Check Gmail inbox access and that password reset emails go to the account linked to GMAIL_REFRESH_TOKEN.`
     );
   }
 }
