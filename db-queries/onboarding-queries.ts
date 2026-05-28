@@ -2,16 +2,15 @@ import { PostgresHelper } from '../utils/db-helper';
 
 const db = new PostgresHelper();
 
-export class UserRepository {
+export class OnboardingData {
 
   static async getUserByEmail(email: string) {
 
     const query = `
       SELECT *
       FROM users
-      WHERE email = $email
+      WHERE email = $1
     `;
-
     return await db.executeQuery(
       query,
       [email]
@@ -22,7 +21,7 @@ export class UserRepository {
 
     const query = `
       DELETE FROM users
-      WHERE id = $userId
+      WHERE id = $1
     `;
 
     return await db.executeUpdate(

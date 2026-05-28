@@ -1,8 +1,4 @@
 import { google } from 'googleapis';
-import { loadEnvironment } from '../config/env-config';
-
-// Load config/.env (shared secrets) + config/dev.env or config/stage.env
-loadEnvironment();
 
 function getEnv(...keys: string[]): string {
   for (const key of keys) {

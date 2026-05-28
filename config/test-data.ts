@@ -1,29 +1,32 @@
-import { loadEnvironment } from './env-config';
+function requiredEnv(...keys: string[]): string {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
 
-// Load environment-specific configuration
-loadEnvironment();
+  throw new Error(`Missing required environment variable. Set one of: ${keys.join(', ')}`);
+}
+
+const validPassword = requiredEnv('VALID_PASSWORD');
 
 export const TestData = {
   urls: {
     baseUrl: process.env.PATIENT_URL || '',
   },
   credentials: {
-    userEmail:
-      process.env.USER_EMAIL ||
-      process.env.PATIENT_EMAIL ||
-      'anita.kumari@techindustan.com',
-    invalidEmail: process.env.INVALID_EMAIL || 'invalid.email@techindustan.com',
+    userEmail: requiredEnv('USER_EMAIL', 'PATIENT_EMAIL'),
+    invalidEmail: process.env.INVALID_EMAIL || 'invalid.email@example.com',
     emptyEmail: process.env.EMPTY_EMAIL || '',
-    incorrectEmail: process.env.INCORRECT_EMAIL || 'anita.kumari+0098@techindustan.com',
-    nonExistingEmail: process.env.NON_EXISTING_EMAIL || 'jj.thomson+0098@techindustan.com',
-    invalidEmailFormat: process.env.INVALID_EMAIL_FORMAT || 'anita.kumari@techindustan.com.com',
-    superAdminEmail: process.env.SUPER_ADMIN_EMAIL || 'super.admin@yopmail.com'
+    incorrectEmail: process.env.INCORRECT_EMAIL || 'invalid.user@example.com',
+    nonExistingEmail: process.env.NON_EXISTING_EMAIL || 'non.existing.user@example.com',
+    invalidEmailFormat: process.env.INVALID_EMAIL_FORMAT || 'invalid.email.example.com',
+    superAdminEmail: process.env.SUPER_ADMIN_EMAIL || ''
   },
   password: {
-    userPassword: process.env.VALID_PASSWORD || 'Password@1234',
-    incorrectPassword: process.env.INCORRECT_PASSWORD || 'Password@123335',
+    userPassword: validPassword,
+    incorrectPassword: process.env.INCORRECT_PASSWORD || `${validPassword}__invalid`,
     emptyPassword: process.env.EMPTY_PASSWORD || '',
-    superAdminPassword: process.env.SUPER_ADMIN_PASSWORD || 'Password@123'
+    superAdminPassword: process.env.SUPER_ADMIN_PASSWORD || ''
   },
   otp: {
     validOTP: process.env.OTP_CODE || '123456',
@@ -45,4 +48,7 @@ export const TestData = {
     clientSecret: process.env.GMAIL_CLIENT_SECRET || process.env.CLIENT_SECRET || '',
     refreshTokken: process.env.GMAIL_REFRESH_TOKEN || process.env.REFRESH_TOKEN || '',
   },
+  roleId:{
+    adminRoleId: process.env.ONBOARDING_ROLE_ID || ''
+  }
 }

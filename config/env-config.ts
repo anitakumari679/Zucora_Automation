@@ -81,6 +81,3 @@ export function getAdminCredentials(): { username: string; password: string } {
     password: process.env.ADMIN_PASSWORD || ''
   };
 }
-
-// Load environment on module import
-loadEnvironment();
