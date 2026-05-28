@@ -87,8 +87,14 @@ export class GmailHelper {
     return matches[matches.length - 1];
   }
 
-private static decodeHtmlEntities(value: string): string {
+  private static decodeHtmlEntities(value: string): string {
     return value
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+        String.fromCharCode(parseInt(hex, 16))
+      )
+      .replace(/&#(\d+);/g, (_, decimal: string) =>
+        String.fromCharCode(parseInt(decimal, 10))
+      )
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
