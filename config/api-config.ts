@@ -4,11 +4,6 @@
  * The environment is determined by the TEST_ENV variable
  */
 
-import { loadEnvironment } from './env-config';
-
-// Load environment-specific configuration
-loadEnvironment();
-
 const baseUri = (
   process.env.API_BASE_URI ||
   'https://api.stage.horizon.ths.agency/api/v1'
@@ -38,7 +33,7 @@ export const endpoints = {
     rolePermissions: '/role/permissions'
   },
   userList:{
-    getUserList: '/user'
+    getUserListAndDetail: '/user',
   }
 };
 

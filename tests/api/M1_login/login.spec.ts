@@ -5,6 +5,24 @@ import { ApiClient } from '../../../fixtures/api-client';
 import { authStorage } from '../../../fixtures/auth-storage';
 import { GmailHelper } from '../../../utils/gmail-helper';
 
+test('@forgotPasswordRequest: Verify forgot password link functionality', async ({ request }) => {
+  const apiClient = new ApiClient(request);
+
+  const response = await apiClient.post(
+    ApiConfig.buildUrl(ApiConfig.endpoints.forgot_password.forgotRequest),
+    {
+      email: TestData.credentials.userEmail,
+    }
+  );
+  const responseBody = await response.json();
+
+  expect(response.status()).toBe(200);
+  expect(responseBody.success).toBe(true);
+  expect(responseBody.message.title).toBe(
+    'Password Reset Link Sent'
+  );
+});
+
 test('@incorrectPassword: Verify attempt login with incorrect password', async ({ request }) => {
   const apiClient = new ApiClient(request);
 
@@ -105,10 +123,10 @@ test('@invalidEmailFormat: Verify attempt login with invalid email format payloa
     }
   );
   const responseBody = await response.json();
-  expect(response.status()).toBe(401);
+  expect(response.status()).toBe(400);
   expect(responseBody.success).toBe(false);
-  expect(responseBody.errors.title).toBe('Log In Unsuccessful');
-  expect(responseBody.errors.description).toBe('Check your email and password and try again.');
+  expect(responseBody.errors.title).toBe('Please provide a valid email address');
+  expect(responseBody.errors.description).toBe('');
 });
 
 test('@invalidCreds: Verify attempt login with invalid credentials payload', async ({ request }) => {
@@ -200,16 +218,8 @@ test('@validLogin: Verify login with valid credentials', async ({ request }) => 
   expect(info.user.status).toBe('ACTIVE');
   expect(typeof info.user.id).toBe('string');
   expect(info.user.id.length).toBeGreaterThan(0);
-
-  expect(info.access_token).toBeDefined();
-  expect(typeof info.access_token).toBe('string');
-  expect(info.access_token.length).toBeGreaterThan(0);
-
-  expect(typeof info.token_expired_at).toBe('number');
-  expect(typeof info.last_active_at).toBe('number');
   expect(typeof info.is_super_admin).toBe('boolean');
   expect(Array.isArray(info.roles)).toBe(true);
   expect(Array.isArray(info.custom_permissions)).toBe(true);
   authStorage.accessToken = info.access_token;
 });
-

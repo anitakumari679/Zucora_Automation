@@ -156,7 +156,6 @@ export class GmailHelper {
         const otp = this.extractOtpFromMessage(message);
         if (!otp) continue;
 
-        console.log(`Latest OTP: ${otp}`);
         await this.markAsRead(gmail, id);
         return otp;
       }

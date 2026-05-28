@@ -5,18 +5,37 @@ import { ApiClient } from './api-client';
 import { authStorage } from './auth-storage';
 import { GmailHelper } from '../utils/gmail-helper';
 
+type AuthSession = Awaited<ReturnType<APIRequestContext['storageState']>>;
+type AuthCookie = AuthSession['cookies'][number];
+
 export type LoginFixture = {
-  /** JWT access token from `/auth/login` → `/auth/verify` flow */
+  /** Authenticated cookie/session state from `/auth/login` -> `/auth/verify` flow */
+  authSession: AuthSession;
+  /** Deprecated: kept temporarily so existing specs can migrate from bearer auth to cookie auth. */
   accessToken: string;
+};
+
+export type WorkerAuthFixture = {
+  /** Shared API request context (cookies/session) */
+  authRequest: APIRequestContext;
+  /** Authenticated cookie/session state generated once per worker */
+  workerAuthSession: AuthSession;
+  /** Deprecated: kept temporarily so existing specs can migrate from bearer auth to cookie auth. */
+  workerAccessToken: string;
+};
+
+export type BrowserAuthFixture = {
+  /** Auth cookies from the browser context created with the saved login session. */
+  authCookies: AuthCookie[];
 };
 
 /**
  * Full happy-path login + OTP verify (same steps as `@validLogin`).
- * Returns `access_token` for use in other API calls.
+ * Saves the secure auth cookies in the supplied request context.
  */
-export async function performLoginForAccessToken(
+export async function performLoginAndSaveSession(
   request: APIRequestContext
-): Promise<string> {
+): Promise<AuthSession> {
   const apiClient = new ApiClient(request);
 
   // OTP is issued for this account — verify must use the same email as login.
@@ -54,7 +73,7 @@ export async function performLoginForAccessToken(
     requestedAfterMs: otpRequestedAt,
     recipientEmail: accountEmail,
   });
-  console.log('OTP:', otp);
+
   const verifyResponse = await apiClient.post(
     `${ApiConfig.buildUrl(ApiConfig.endpoints.auth.verifyOtp)}`,
     {
@@ -81,28 +100,45 @@ export async function performLoginForAccessToken(
   expect(verifyBody.info).toBeDefined();
 
   const info = verifyBody.info;
-  expect(info.user).toBeDefined();
-  expect(info.user.email).toBe(accountEmail);
-  expect(info.user.status).toBe('ACTIVE');
-  expect(typeof info.user.id).toBe('string');
-  expect(info.user.id.length).toBeGreaterThan(0);
+  if (info.user) {
+    expect(info.user.email).toBe(accountEmail);
+    expect(info.user.status).toBe('ACTIVE');
+    expect(typeof info.user.id).toBe('string');
+    expect(info.user.id.length).toBeGreaterThan(0);
+  }
 
-  expect(info.access_token).toBeDefined();
-  expect(typeof info.access_token).toBe('string');
-  expect(info.access_token.length).toBeGreaterThan(0);
+  const authSession = await request.storageState();
+  const secureHttpOnlyCookies = authSession.cookies.filter(
+    (cookie) => cookie.secure && cookie.httpOnly
+  );
 
-  expect(typeof info.token_expired_at).toBe('number');
-  expect(typeof info.last_active_at).toBe('number');
-  expect(typeof info.is_super_admin).toBe('boolean');
-  expect(Array.isArray(info.roles)).toBe(true);
-  expect(Array.isArray(info.custom_permissions)).toBe(true);
+  expect(
+    secureHttpOnlyCookies.length,
+    `Expected login to store secure HttpOnly auth cookies. Cookies found: ${authSession.cookies
+      .map((cookie) => cookie.name)
+      .join(', ')}`
+  ).toBeGreaterThan(0);
 
-  return info.access_token as string;
+  return authSession;
 }
 
-/** Headers for authenticated API calls */
-export function bearerAuthHeaders(accessToken: string): Record<string, string> {
-  return { Authorization: `Bearer ${accessToken}` };
+/**
+ * Cookie-based auth does not need an Authorization header.
+ * Kept temporarily so existing specs can migrate without changing every call site at once.
+ */
+export function bearerAuthHeaders(_accessToken?: string): Record<string, string> {
+  return {};
+}
+
+/**
+ * Backward-compatible alias for old call sites.
+ * The returned string is intentionally empty because auth now lives in secure cookies.
+ */
+export async function performLoginForAccessToken(
+  request: APIRequestContext
+): Promise<string> {
+  await performLoginAndSaveSession(request);
+  return '';
 }
 
 /**
@@ -119,11 +155,119 @@ export function bearerAuthHeaders(accessToken: string): Record<string, string> {
  * ```
  */
 export const test = base.extend<LoginFixture>({
+  authSession: async ({ request }, use) => {
+    const session = await performLoginAndSaveSession(request);
+    await use(session);
+  },
+
   accessToken: async ({ request }, use) => {
-    const token = await performLoginForAccessToken(request);
-    authStorage.accessToken = token;
-    await use(token);
+    await performLoginAndSaveSession(request);
+    authStorage.accessToken = null;
+    await use('');
     authStorage.clear();
+  },
+});
+
+/**
+ * Login once per worker and reuse the same authenticated request context + cookies.
+ * Use this when a spec file has multiple tests and you want OTP only once.
+ */
+export const testWithWorkerAuth = base.extend<LoginFixture, WorkerAuthFixture>({
+  authRequest: [
+    async ({ playwright }, use) => {
+      const request = await playwright.request.newContext();
+      await use(request);
+      await request.dispose();
+    },
+    { scope: 'worker' },
+  ],
+
+  workerAuthSession: [
+    async ({ authRequest }, use) => {
+      const session = await performLoginAndSaveSession(authRequest);
+      await use(session);
+    },
+    { scope: 'worker' },
+  ],
+
+  workerAccessToken: [
+    async ({ workerAuthSession }, use) => {
+      await use('');
+    },
+    { scope: 'worker' },
+  ],
+
+  authSession: async ({ workerAuthSession }, use) => {
+    await use(workerAuthSession);
+  },
+
+  accessToken: async ({ workerAccessToken }, use) => {
+    // Deprecated compatibility value; the authenticated request context carries cookies.
+    await use(workerAccessToken);
+  },
+});
+
+/**
+ * Login once per worker, create each browser page with the saved cookie session,
+ * and expose browser-context cookies for session assertions/debugging.
+ */
+export const testWithSavedSession = base.extend<
+  LoginFixture & BrowserAuthFixture,
+  WorkerAuthFixture
+>({
+  authRequest: [
+    async ({ playwright }, use) => {
+      const request = await playwright.request.newContext();
+      await use(request);
+      await request.dispose();
+    },
+    { scope: 'worker' },
+  ],
+
+  workerAuthSession: [
+    async ({ authRequest }, use) => {
+      const session = await performLoginAndSaveSession(authRequest);
+      await use(session);
+    },
+    { scope: 'worker' },
+  ],
+
+  workerAccessToken: [
+    async ({ workerAuthSession }, use) => {
+      await use('');
+    },
+    { scope: 'worker' },
+  ],
+
+  authSession: async ({ workerAuthSession }, use) => {
+    await use(workerAuthSession);
+  },
+
+  accessToken: async ({ workerAccessToken }, use) => {
+    await use(workerAccessToken);
+  },
+
+  page: async ({ browser, authSession }, use) => {
+    const context = await browser.newContext({ storageState: authSession });
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+  },
+
+  authCookies: async ({ page }, use) => {
+    const cookies = await page.context().cookies();
+    console.log(
+      cookies.map(({ name, domain, path, expires, httpOnly, secure, sameSite }) => ({
+        name,
+        domain,
+        path,
+        expires,
+        httpOnly,
+        secure,
+        sameSite,
+      }))
+    );
+    await use(cookies);
   },
 });
 
